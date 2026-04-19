@@ -18,13 +18,16 @@ async function enterRoom() {
     const input = document.getElementById('playerId').value.trim();
     const errorEl = document.getElementById('loginError');
     
-    if (!/^[1-8]号?$/.test(input)) {
-        errorEl.textContent = '请输入正确的编号格式，如：3号';
+    // 放宽验证：接受 1-8 或 1号-8号
+    let num = input.replace('号', '').trim();
+    if (!/^[1-8]$/.test(num)) {
+        errorEl.textContent = '请输入 1-8 或 1号-8号';
         return;
     }
     
-    const id = input.replace('号', '') + '号';
-    
+    const id = num + '号';
+    // ... 后面不变
+}    
     // 检查是否在线（查询最近30秒内有活动的玩家）
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
     const { data: existing } = await supabase
