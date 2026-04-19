@@ -1,6 +1,6 @@
 // ==================== 配置区（必须修改）====================
-const SUPABASE_URL = 'https://你的项目名.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...你的anon key';
+const SUPABASE_URL = 'https://mronesaayjtjuhwvzouj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yb25lc2FheWp0anVod3Z6b3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MTQ4NzUsImV4cCI6MjA5MjE5MDg3NX0.rejXofvcyx8iwDBx-8p01xAgQxqAn0KcyS5boCnWkIY';
 const ADMIN_PASSWORD = 'admin123';
 
 // ==================== 全局变量（改为let，避免重复声明）====================
