@@ -1,34 +1,25 @@
-// ==================== 配置区 ====================
-// 改成你的 Supabase 信息！！！
+// ==================== 配置区（必须修改）====================
 const SUPABASE_URL = 'https://mronesaayjtjuhwvzouj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yb25lc2FheWp0anVod3Z6b3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MTQ4NzUsImV4cCI6MjA5MjE5MDg3NX0.rejXofvcyx8iwDBx-8p01xAgQxqAn0KcyS5boCnWkIY';
-
 const ADMIN_PASSWORD = 'admin123';
-const MAX_PLAYERS = 8;
 
-// ==================== 初始化 ====================
+// ==================== 初始化（只执行一次）====================
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 let myId = null;
 let currentPrivateTarget = null;
-let messageSubscription = null;
 
-// ==================== 登录（无验证版） ====================
+// ==================== 登录（无验证，任何输入都能进）====================
 async function enterRoom() {
     const input = document.getElementById('playerId').value.trim();
     const errorEl = document.getElementById('loginError');
     
-    // 自动提取数字，不验证，任何输入都能进
-    let num = input.replace(/[^\d]/g, ''); // 去掉所有非数字字符
-    
-    // 如果没输入或超出范围，默认给1号
-    if (!num || num < 1 || num > 8) {
-        num = '1';
-    }
+    // 提取数字，默认1号
+    let num = input.replace(/[^\d]/g, '') || '1';
+    if (num < 1 || num > 8) num = '1';
     
     const id = num + '号';
     
-    // 检查是否在线（30秒内活跃）
+    // 检查是否在线
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
     const { data: existing } = await supabase
         .from('players')
@@ -44,75 +35,56 @@ async function enterRoom() {
     
     myId = id;
     
-    // 写入玩家信息
-    await upsertPlayer(id);
-    
-    // 定期更新在线状态
-    setInterval(() => upsertPlayer(id), 10000);
-    
-    // 离线清理
-    window.addEventListener('beforeunload', () => {
-        supabase.from('players').delete().eq('player_id', id);
+    // 写入玩家
+    await supabase.from('players').upsert({ 
+        player_id: id, 
+        last_seen: new Date().toISOString() 
     });
+    
+    // 定期更新状态
+    setInterval(() => {
+        supabase.from('players').upsert({ 
+            player_id: id, 
+            last_seen: new Date().toISOString() 
+        });
+    }, 10000);
     
     // 显示主界面
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('myId').textContent = '我是：' + myId;
     
-    // 发送系统消息
-    await sendSystemMessage(myId + ' 进入了房间');
+    // 系统消息
+    await supabase.from('messages').insert({
+        type: 'system',
+        from_id: 'system',
+        to_id: 'all',
+        content: myId + ' 进入了房间'
+    });
     
     // 开始监听
     startListeners();
 }
 
-async function upsertPlayer(id) {
-    await supabase
-        .from('players')
-        .upsert({ 
-            player_id: id, 
-            last_seen: new Date().toISOString() 
-        });
-}
-
 // ==================== 监听数据 ====================
 function startListeners() {
     // 监听消息
-    messageSubscription = supabase
-        .channel('messages')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'messages' },
-            (payload) => {
-                loadMessages();
-            }
-        )
+    supabase.channel('messages')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadMessages())
         .subscribe();
     
     // 监听玩家
-    supabase
-        .channel('players')
-        .on('postgres_changes',
-            { event: '*', schema: 'public', table: 'players' },
-            (payload) => {
-                loadPlayers();
-            }
-        )
+    supabase.channel('players')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadPlayers())
         .subscribe();
     
-    // 初始加载
     loadMessages();
     loadPlayers();
 }
 
 // ==================== 加载消息 ====================
 async function loadMessages() {
-    const { data: messages } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(100);
-    
+    const { data: messages } = await supabase.from('messages').select('*').order('created_at', { ascending: true }).limit(100);
     const container = document.getElementById('messages');
     container.innerHTML = '';
     
@@ -127,21 +99,14 @@ async function loadMessages() {
             return;
         }
         
-        // 只显示公共消息或发给自己的私聊
-        if (msg.type === 'private' && msg.to_id !== myId && msg.from_id !== myId) {
-            return;
-        }
+        if (msg.type === 'private' && msg.to_id !== myId && msg.from_id !== myId) return;
         
         const div = document.createElement('div');
         div.className = 'msg' + (msg.type === 'private' ? ' msg-private' : '');
         
         const header = document.createElement('div');
         header.className = 'msg-header';
-        if (msg.type === 'private') {
-            header.textContent = '🔒 ' + msg.from_id + ' → ' + msg.to_id + ' (私聊)';
-        } else {
-            header.textContent = msg.from_id;
-        }
+        header.textContent = msg.type === 'private' ? '🔒 ' + msg.from_id + ' → ' + msg.to_id + ' (私聊)' : msg.from_id;
         
         const content = document.createElement('div');
         content.className = 'msg-content';
@@ -158,12 +123,7 @@ async function loadMessages() {
 // ==================== 加载玩家 ====================
 async function loadPlayers() {
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
-    const { data: players } = await supabase
-        .from('players')
-        .select('*')
-        .gt('last_seen', thirtySecondsAgo)
-        .order('player_id');
-    
+    const { data: players } = await supabase.from('players').select('*').gt('last_seen', thirtySecondsAgo).order('player_id');
     const container = document.getElementById('playerList');
     container.innerHTML = '';
     
@@ -203,15 +163,6 @@ async function sendMessage() {
     input.value = '';
 }
 
-async function sendSystemMessage(content) {
-    await supabase.from('messages').insert({
-        type: 'system',
-        from_id: 'system',
-        to_id: 'all',
-        content: content
-    });
-}
-
 // ==================== 私聊 ====================
 function openPrivate(targetId) {
     if (targetId === myId) {
@@ -246,9 +197,7 @@ async function loadPrivateMessages() {
     
     messages.forEach(msg => {
         const div = document.createElement('div');
-        div.style.cssText = 'margin-bottom:10px; padding:8px; background:' + 
-            (msg.from_id === myId ? '#e94560' : '#533483') + 
-            '; border-radius:6px;';
+        div.style.cssText = 'margin-bottom:10px; padding:8px; background:' + (msg.from_id === myId ? '#e94560' : '#533483') + '; border-radius:6px;';
         div.innerHTML = `<small>${msg.from_id}</small><br>${msg.content}`;
         container.appendChild(div);
     });
@@ -268,7 +217,6 @@ async function sendPrivate() {
         content: content
     });
     
-    // 本地显示
     const container = document.getElementById('privateMessages');
     const div = document.createElement('div');
     div.style.cssText = 'margin-bottom:10px; padding:8px; background:#e94560; border-radius:6px;';
@@ -303,9 +251,8 @@ async function resetRoom() {
     location.reload();
 }
 
-// ==================== 启动 ====================
+// ==================== 启动清理 ====================
 window.onload = () => {
-    // 定期清理离线玩家
     setInterval(async () => {
         const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
         await supabase.from('players').delete().lt('last_seen', thirtySecondsAgo);
