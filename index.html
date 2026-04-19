@@ -255,7 +255,8 @@
         </div>
     </div>
 
-    <div id="adminModal" style="display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.8); z-index:200; justify-content:center; align-items:center;">
+    <!-- 修复：增加点击空白关闭 -->
+    <div id="adminModal" onclick="if(event.target===this)closeAdmin()" style="display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.8); z-index:200; justify-content:center; align-items:center;">
         <div style="background:#16213e; padding:30px; border-radius:12px; text-align:center;">
             <h3 style="color:#e94560; margin-bottom:20px;">房主控制面板</h3>
             <p style="margin-bottom:20px; color:#888;">此操作将清空所有聊天记录<br>所有人需要重新进入并输入编号</p>
@@ -264,7 +265,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 修复：换成不被拦截的 CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>
 </html>
