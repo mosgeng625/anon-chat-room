@@ -13,22 +13,22 @@ let myId = null;
 let currentPrivateTarget = null;
 let messageSubscription = null;
 
-// ==================== 登录 ====================
+// ==================== 登录（无验证版） ====================
 async function enterRoom() {
     const input = document.getElementById('playerId').value.trim();
     const errorEl = document.getElementById('loginError');
     
-    // 放宽验证：接受 1-8 或 1号-8号
-    let num = input.replace('号', '').trim();
-    if (!/^[1-8]$/.test(num)) {
-        errorEl.textContent = '请输入 1-8 或 1号-8号';
-        return;
+    // 自动提取数字，不验证，任何输入都能进
+    let num = input.replace(/[^\d]/g, ''); // 去掉所有非数字字符
+    
+    // 如果没输入或超出范围，默认给1号
+    if (!num || num < 1 || num > 8) {
+        num = '1';
     }
     
     const id = num + '号';
-    // ... 后面不变
-}    
-    // 检查是否在线（查询最近30秒内有活动的玩家）
+    
+    // 检查是否在线（30秒内活跃）
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
     const { data: existing } = await supabase
         .from('players')
@@ -38,7 +38,7 @@ async function enterRoom() {
         .single();
     
     if (existing) {
-        errorEl.textContent = '该编号已被使用，请选择其他编号';
+        errorEl.textContent = '该编号已被使用，请换其他编号';
         return;
     }
     
