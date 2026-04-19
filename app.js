@@ -3,16 +3,23 @@ const SUPABASE_URL = 'https://你的项目名.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...你的anon key';
 const ADMIN_PASSWORD = 'admin123';
 
-// ==================== 初始化（防重复、防拦截）====================
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false }
-});
-
+// ==================== 全局变量（改为let，避免重复声明）====================
+let supabase;
 let myId = null;
 let currentPrivateTarget = null;
 
-// ==================== 登录 ====================
-async function enterRoom() {
+// ==================== 初始化（只执行一次，防重复）====================
+if (!window.supabaseInstance) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false } // 禁用存储访问，解决Tracking Prevention报错
+  });
+  window.supabaseInstance = supabase;
+} else {
+  supabase = window.supabaseInstance;
+}
+
+// ==================== 登录（绑定到window，确保全局可访问）====================
+window.enterRoom = async function() {
   const input = document.getElementById('playerId').value.trim();
   const errorEl = document.getElementById('loginError');
   errorEl.textContent = '';
@@ -21,7 +28,6 @@ async function enterRoom() {
   num = Math.max(1, Math.min(8, parseInt(num) || 1));
   const id = num + '号';
 
-  // 判断是否在线
   const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
   const { data: existing } = await supabase
     .from('players')
@@ -37,13 +43,11 @@ async function enterRoom() {
 
   myId = id;
 
-  // 写入自己
   await supabase.from('players').upsert({
     player_id: id,
     last_seen: new Date().toISOString()
   });
 
-  // 心跳
   setInterval(() => {
     supabase.from('players').upsert({
       player_id: id,
@@ -51,12 +55,10 @@ async function enterRoom() {
     });
   }, 10000);
 
-  // 显示界面
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('myId').textContent = '我是：' + myId;
 
-  // 系统消息
   await supabase.from('messages').insert({
     type: 'system',
     from_id: 'system',
@@ -102,7 +104,6 @@ async function loadMessages() {
       return;
     }
 
-    // 私聊只看自己相关的
     if (msg.type === 'private' && msg.from_id !== myId && msg.to_id !== myId) return;
 
     const div = document.createElement('div');
@@ -158,7 +159,7 @@ async function loadPlayers() {
 }
 
 // ==================== 公屏发送 ====================
-async function sendMessage() {
+window.sendMessage = async function() {
   const input = document.getElementById('msgInput');
   const content = input.value.trim();
   if (!content || !myId) return;
@@ -174,7 +175,7 @@ async function sendMessage() {
 }
 
 // ==================== 私聊 ====================
-function openPrivate(targetId) {
+window.openPrivate = function(targetId) {
   if (targetId === myId) {
     alert('不能给自己发私聊');
     return;
@@ -185,7 +186,7 @@ function openPrivate(targetId) {
   loadPrivateMessages();
 }
 
-function closePrivate() {
+window.closePrivate = function() {
   document.getElementById('privateModal').style.display = 'none';
   currentPrivateTarget = null;
 }
@@ -215,7 +216,7 @@ async function loadPrivateMessages() {
   container.scrollTop = container.scrollHeight;
 }
 
-async function sendPrivate() {
+window.sendPrivate = async function() {
   const input = document.getElementById('privateInput');
   const content = input.value.trim();
   if (!content || !currentPrivateTarget || !myId) return;
@@ -232,7 +233,7 @@ async function sendPrivate() {
 }
 
 // ==================== 管理员 ====================
-function showAdmin() {
+window.showAdmin = function() {
   const pwd = prompt('请输入房主密码：');
   if (pwd === ADMIN_PASSWORD) {
     document.getElementById('adminModal').style.display = 'flex';
@@ -241,11 +242,11 @@ function showAdmin() {
   }
 }
 
-function closeAdmin() {
+window.closeAdmin = function() {
   document.getElementById('adminModal').style.display = 'none';
 }
 
-async function resetRoom() {
+window.resetRoom = async function() {
   if (!confirm('确定要重置房间吗？所有聊天记录将被清空！')) return;
 
   await supabase.from('messages').delete().neq('id', 0);
@@ -256,9 +257,9 @@ async function resetRoom() {
 }
 
 // ==================== 自动清理离线玩家 ====================
-window.onload = () => {
+window.addEventListener('load', () => {
   setInterval(async () => {
     const expire = new Date(Date.now() - 30000).toISOString();
     await supabase.from('players').delete().lt('last_seen', expire);
   }, 30000);
-};
+});
