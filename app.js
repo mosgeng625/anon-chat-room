@@ -8,10 +8,10 @@ let supabase;
 let myId = null;
 let currentPrivateTarget = null;
 
-// ==================== 初始化（单例模式，防重复声明+防追踪拦截）====================
+// ==================== 初始化（单例模式 + 禁用存储访问）====================
 if (!window.supabaseInstance) {
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: false } // 禁用存储访问，解决Tracking Prevention报错
+    auth: { persistSession: false }
   });
   window.supabaseInstance = supabase;
 } else {
