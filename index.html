@@ -1,273 +1,575 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3204/3204123.png">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>匿名聊天室 - Supabase版</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #1a1a2e; 
-            color: #eee; 
-            height: 100vh; 
-            overflow: hidden;
-        }
-        
-        #login { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            gap: 20px;
-        }
-        #login h1 { color: #e94560; margin-bottom: 20px; }
-        #login input {
-            padding: 12px 20px;
-            border: 2px solid #e94560;
-            background: #16213e;
-            color: #fff;
-            border-radius: 8px;
-            font-size: 16px;
-            width: 200px;
-            text-align: center;
-        }
-        #login button {
-            padding: 12px 40px;
-            background: #e94560;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        #login button:hover { background: #ff6b6b; }
-        .error { color: #ff6b6b; font-size: 14px; }
-        
-        #app { display: none; height: 100vh; }
-        
-        #header {
-            background: #16213e;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #e94560;
-        }
-        #header h2 { color: #e94560; }
-        
-        .admin-btn {
-            background: #0f3460;
-            color: #fff;
-            border: 1px solid #e94560;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .admin-btn:hover { background: #e94560; }
-        
-        #main {
-            display: flex;
-            height: calc(100vh - 60px);
-        }
-        
-        #sidebar {
-            width: 200px;
-            background: #16213e;
-            padding: 15px;
-            overflow-y: auto;
-        }
-        .player-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            margin-bottom: 8px;
-            background: #0f3460;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .player-item:hover { background: #e94560; }
-        .player-avatar {
-            width: 36px; 
-            height: 36px;
-            background: #533483;
-            border-radius: 50%;
-            margin-right: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-        .player-name { font-size: 14px; }
-        .online { color: #4ecca3; font-size: 12px; }
-        
-        #chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #1a1a2e;
-        }
-        #messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        .msg {
-            margin-bottom: 15px;
-            padding: 10px 15px;
-            background: #16213e;
-            border-radius: 10px;
-            max-width: 80%;
-        }
-        .msg-header {
-            color: #e94560;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-        .msg-content { font-size: 15px; line-height: 1.5; }
-        .msg-private {
-            border-left: 3px solid #e94560;
-            background: #2d132c;
-        }
-        
-        #input-area {
-            padding: 15px;
-            background: #16213e;
-            display: flex;
-            gap: 10px;
-        }
-        #msgInput {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #533483;
-            background: #0f3460;
-            color: #fff;
-            border-radius: 8px;
-            font-size: 15px;
-        }
-        #sendBtn {
-            padding: 12px 30px;
-            background: #e94560;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        
-        #privateModal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background: #16213e;
-            padding: 20px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .close-btn {
-            background: none;
-            border: none;
-            color: #e94560;
-            font-size: 24px;
-            cursor: pointer;
-        }
-        #privateMessages {
-            flex: 1;
-            overflow-y: auto;
-            background: #0f3460;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            min-height: 200px;
-        }
-        #privateInputArea { display: flex; gap: 10px; }
-        #privateInput { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #533483; background: #1a1a2e; color: #fff; }
-        #sendPrivate { padding: 10px 20px; background: #e94560; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔞20岁的少年心事🔞</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  body {
+    background: #111318;
+    color: #eee;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  #login {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 20px;
+  }
+  .login-card {
+    background: #252a33;
+    padding: 40px 30px;
+    border-radius: 20px;
+    width: 100%;
+    text-align: center;
+  }
+  .login-card h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #fff;
+  }
+  .login-card p {
+    color: #999;
+    margin-bottom: 20px;
+  }
+  #playerId {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #2d323d;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  #loginBtn {
+    width: 100%;
+    padding: 12px;
+    background: #07c160;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #app {
+    display: none;
+    height: 100vh;
+    flex-direction: column;
+  }
+  #header {
+    background: #252a33;
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #myInfo { font-weight: 500; }
+  #privateStatus {
+    color: #07c160;
+    font-size: 12px;
+    margin-left: 8px;
+  }
+  #togglePrivateBtn {
+    background: #444;
+    color: #fff;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #privatePanel {
+    background: #1d1f23;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #ccc;
+    display: none;
+    border-bottom: 1px solid #333;
+  }
+  #privateList { line-height: 1.5; }
+  .header-right { display: flex; gap: 6px; }
+  #endPrivateBtn, #resetBtn {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #endPrivateBtn { display: none; }
+  #messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sys {
+    align-self: center;
+    background: #333;
+    color: #aaa;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .msg { display: flex; gap: 8px; max-width: 75%; }
+  .msg.me { align-self: flex-end; flex-direction: row-reverse; }
+  .avatar {
+    width: 34px;
+    height: 34px;
+    background: #555;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .bubble {
+    background: #2d323d;
+    padding: 8px 12px;
+    border-radius: 8px;
+    line-height: 1.4;
+  }
+  .msg.me .bubble { background: #07c160; color: #fff; }
+
+  #inputArea {
+    display: flex;
+    padding: 10px;
+    background: #252a33;
+    gap: 6px;
+    align-items: center;
+    position: relative;
+  }
+  #quickAddBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #quickMenu {
+    position: absolute;
+    bottom: 55px;
+    left: 10px;
+    background: #252a33;
+    border-radius: 10px;
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    width: 170px;
+    z-index: 999;
+  }
+  #quickMenu button {
+    background: #383838;
+    color: #fff;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  #quickMenu button:hover {
+    background: #6366f1;
+  }
+
+  #msgInput {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: none;
+    background: #1a1d24;
+    color: #fff;
+    outline: none;
+  }
+  #sendBtn {
+    padding: 10px 16px;
+    background: #07c160;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+  .modalBox {
+    background: #252a33;
+    padding: 25px;
+    border-radius: 14px;
+    width: 90%;
+    max-width: 350px;
+    text-align: center;
+  }
+  .btnGroup {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .ok { background: #07c160; color: #fff; }
+  .no { background: #555; color: #fff; }
+</style>
 </head>
 <body>
-    <div id="login">
-        <h1>🎭 匿名聊天室</h1>
-        <p>请输入你的编号（1-8）</p>
-        <input type="text" id="playerId" placeholder="例如：3号" maxlength="3">
-        <button onclick="enterRoom()">进入房间</button>
-        <p class="error" id="loginError"></p>
-        <p style="margin-top: 30px; color: #888; font-size: 12px;">
-            房主密码：admin123（仅用于重置房间）
-        </p>
-    </div>
+<div id="login">
+  <div class="login-card">
+    <h1>🔞20岁的少年心事🔞</h1>
+    <p>输入 1‑8 进入房间</p>
+    <input id="playerId" placeholder="输入编号" maxlength="1">
+    <button id="loginBtn">进入房间</button>
+  </div>
+</div>
 
-    <div id="app">
-        <div id="header">
-            <h2>🎭 匿名聊天室</h2>
-            <div>
-                <span id="myId" style="margin-right: 20px;"></span>
-                <button class="admin-btn" onclick="showAdmin()">房主控制</button>
-            </div>
-        </div>
-        
-        <div id="main">
-            <div id="sidebar">
-                <h3 style="margin-bottom: 15px; color: #e94560;">在线玩家</h3>
-                <div id="playerList"></div>
-            </div>
-            
-            <div id="chat-area">
-                <div id="messages"></div>
-                <div id="input-area">
-                    <input type="text" id="msgInput" placeholder="输入消息..." onkeypress="if(event.key==='Enter')sendMessage()">
-                    <button id="sendBtn" onclick="sendMessage()">发送</button>
-                </div>
-            </div>
-        </div>
+<div id="app">
+  <div id="header">
+    <div>
+      <span id="myInfo"></span>
+      <span id="privateStatus"></span>
     </div>
-
-    <div id="privateModal" onclick="if(event.target===this)closePrivate()">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="privateTitle">与 X号 私聊</h3>
-                <button class="close-btn" onclick="closePrivate()">×</button>
-            </div>
-            <div id="privateMessages"></div>
-            <div id="privateInputArea">
-                <input type="text" id="privateInput" placeholder="输入私聊内容..." onkeypress="if(event.key==='Enter')sendPrivate()">
-                <button id="sendPrivate" onclick="sendPrivate()">发送</button>
-            </div>
-        </div>
+    <button id="togglePrivateBtn">展开私聊状态</button>
+    <div class="header-right">
+      <button id="resetBtn">重置</button>
+      <button id="endPrivateBtn">结束私聊</button>
     </div>
+  </div>
 
-    <!-- 修复：增加点击空白关闭 -->
-    <div id="adminModal" onclick="if(event.target===this)closeAdmin()" style="display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.8); z-index:200; justify-content:center; align-items:center;">
-        <div style="background:#16213e; padding:30px; border-radius:12px; text-align:center;">
-            <h3 style="color:#e94560; margin-bottom:20px;">房主控制面板</h3>
-            <p style="margin-bottom:20px; color:#888;">此操作将清空所有聊天记录<br>所有人需要重新进入并输入编号</p>
-            <button onclick="resetRoom()" style="padding:12px 40px; background:#e94560; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:16px;">⚠️ 重置房间</button>
-            <button onclick="closeAdmin()" style="margin-left:10px; padding:12px 30px; background:#533483; color:#fff; border:none; border-radius:8px; cursor:pointer;">取消</button>
-        </div>
+  <div id="privatePanel">
+    <div id="privateList">暂无私聊</div>
+  </div>
+
+  <div id="messages"></div>
+
+  <div id="inputArea">
+    <button id="quickAddBtn">+</button>
+    <div id="quickMenu">
+      <button data-t="我要和1号谈谈">我要和1号谈谈</button>
+      <button data-t="我要和2号谈谈">我要和2号谈谈</button>
+      <button data-t="我要和3号谈谈">我要和3号谈谈</button>
+      <button data-t="我要和4号谈谈">我要和4号谈谈</button>
+      <button data-t="我要和5号谈谈">我要和5号谈谈</button>
+      <button data-t="我要和6号谈谈">我要和6号谈谈</button>
+      <button data-t="我要和7号谈谈">我要和7号谈谈</button>
+      <button data-t="我要和8号谈谈">我要和8号谈谈</button>
     </div>
+    <input id="msgInput" placeholder="输入消息...">
+    <button id="sendBtn">发送</button>
+  </div>
+</div>
 
-    <!-- 修复：换成不被拦截的 CDN -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+<div id="privateModal" class="modal">
+  <div class="modalBox">
+    <h3 id="modalText"></h3>
+    <div class="btnGroup">
+      <button class="btn ok" id="acceptBtn">同意</button>
+      <button class="btn no" id="rejectBtn">拒绝</button>
+    </div>
+  </div>
+</div>
+
+<div id="resetModal" class="modal">
+  <div class="modalBox">
+    <h3>重置房间</h3>
+    <input id="resetPwd" type="password" placeholder="密码" style="width:100%;padding:12px;border-radius:8px;border:none;background:#1a1d24;color:#fff;text-align:center;margin-bottom:20px">
+    <div class="btnGroup">
+      <button class="btn no" id="cancelResetBtn">取消</button>
+      <button class="btn ok" id="confirmResetBtn">确认重置</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://mronesaayjtjuhwvzouj.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yb25lc2FheWp0anVod3Z6b3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MTQ4NzUsImV4cCI6MjA5MjE5MDg3NX0.rejXofvcyx8iwDBx-8p01xAgQxqAn0KcyS5boCnWkIY";
+const ADMIN_PWD = "admin123";
+
+let supabaseClient;
+let me = null;
+let mode = "group";
+let privatePartner = null;
+let lastLoadedId = 0;
+let loadedMessageIds = new Set();
+let isLoading = false;
+
+let loadMsgTimer = null;
+let checkReqTimer = null;
+let privateAcceptTimer = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  document.getElementById('loginBtn').addEventListener('click', login);
+  document.getElementById('togglePrivateBtn').addEventListener('click', togglePrivatePanel);
+  document.getElementById('resetBtn').addEventListener('click', showResetModal);
+  document.getElementById('endPrivateBtn').addEventListener('click', endPrivate);
+  document.getElementById('sendBtn').addEventListener('click', send);
+  document.getElementById('msgInput').addEventListener('keypress', e => { if (e.key === 'Enter') send(); });
+  document.getElementById('acceptBtn').addEventListener('click', acceptPrivate);
+  document.getElementById('rejectBtn').addEventListener('click', rejectPrivate);
+  document.getElementById('cancelResetBtn').addEventListener('click', closeResetModal);
+  document.getElementById('confirmResetBtn').addEventListener('click', confirmReset);
+
+  const quickAddBtn = document.getElementById('quickAddBtn');
+  const quickMenu = document.getElementById('quickMenu');
+  quickAddBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    quickMenu.style.display = quickMenu.style.display === 'flex' ? 'none' : 'flex';
+  });
+  quickMenu.addEventListener('click', e => {
+    e.stopPropagation();
+    const btn = e.target.closest('[data-t]');
+    if (btn) {
+      document.getElementById('msgInput').value = btn.dataset.t;
+      quickMenu.style.display = 'none';
+    }
+  });
+  document.addEventListener('click', () => {
+    quickMenu.style.display = 'none';
+  });
+
+  document.getElementById('messages').addEventListener('click', e => {
+    const ava = e.target.closest('.avatar');
+    if (!ava) return;
+    const target = ava.dataset.id;
+    if (target === me) return;
+    sendPrivateRequest(target);
+  });
+});
+
+async function login() {
+  let v = (document.getElementById('playerId').value || '1').replace(/\D/g, '');
+  v = Math.max(1, Math.min(8, v));
+  me = v + '号';
+
+  await supabaseClient.from('players').upsert({
+    player_id: me, status: 'online', is_private_chat_with: null
+  }, { onConflict: 'player_id' });
+
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('myInfo').innerText = '我是：' + me;
+
+  loadMsgTimer = setInterval(loadNewMessages, 400);
+  checkReqTimer = setInterval(checkPrivateRequest, 600);
+}
+
+// 发起私聊（你要的逻辑：立刻进私聊 + 5秒超时自动退出 + 可手动退出）
+async function sendPrivateRequest(to) {
+  // 先清掉旧请求，避免冲突
+  await supabaseClient.from('private_requests')
+    .delete()
+    .or(`from_id.eq('${me}'),to_id.eq('${me}')`);
+
+  // 插入新请求
+  await supabaseClient.from('private_requests').insert([{
+    from_id: me, to_id: to, status: 'pending'
+  }]);
+
+  // ==============================================
+  // 👇 核心：发起方 立刻 进入私聊（你要的效果）
+  // ==============================================
+  mode = 'private';
+  privatePartner = to;
+  document.getElementById('endPrivateBtn').style.display = 'inline-block';
+  document.getElementById('privateStatus').innerText = `（等待对方同意：${to}）`;
+  lastLoadedId = 0;
+  loadedMessageIds.clear();
+  document.getElementById('messages').innerHTML = '';
+
+  // 倒计时 5 秒，没同意就自动退出
+  let waitTime = 5;
+  let timeoutTimer = setInterval(() => {
+    waitTime--;
+    document.getElementById('privateStatus').innerText = `（等待对方同意：${to}，${waitTime}秒）`;
+    if (waitTime <= 0) {
+      clearInterval(timeoutTimer);
+      clearInterval(privateAcceptTimer);
+      // 超时自动退出
+      mode = 'group';
+      privatePartner = null;
+      document.getElementById('endPrivateBtn').style.display = 'none';
+      document.getElementById('privateStatus').innerText = '';
+      alert(to + ' 未接受私聊，已自动退出');
+    }
+  }, 1000);
+
+  // 监听对方是否同意
+  clearInterval(privateAcceptTimer);
+  privateAcceptTimer = setInterval(async () => {
+    const { data: req } = await supabaseClient
+      .from('private_requests')
+      .select('*')
+      .eq('from_id', me)
+      .eq('to_id', to)
+      .eq('status', 'accepted')
+      .maybeSingle();
+
+    if (req) {
+      // 对方同意 → 清除倒计时，正常私聊
+      clearInterval(timeoutTimer);
+      clearInterval(privateAcceptTimer);
+      document.getElementById('privateStatus').innerText = `（私聊中：${to}）`;
+    }
+  }, 600);
+
+  // 把超时计时器绑到当前私聊，手动结束时会清掉
+  window.privateTimeoutTimer = timeoutTimer;
+}
+
+
+
+async function checkPrivateRequest() {
+  if (mode === 'private' || document.getElementById('privateModal').style.display === 'flex') return;
+  const { data: reqs } = await supabaseClient
+    .from('private_requests')
+    .select('*')
+    .eq('to_id', me)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (!reqs || reqs.length === 0) return;
+  window.curReq = reqs[0];
+  document.getElementById('modalText').innerText = window.curReq.from_id + ' 想和你私聊';
+  document.getElementById('privateModal').style.display = 'flex';
+}
+
+async function acceptPrivate() {
+  if (!window.curReq) return;
+  const from = window.curReq.from_id;
+
+  await supabaseClient.from('private_requests').update({ status: 'accepted' }).eq('id', window.curReq.id);
+
+  mode = 'private';
+  privatePartner = from;
+  document.getElementById('endPrivateBtn').style.display = 'inline-block';
+  document.getElementById('privateModal').style.display = 'none';
+  document.getElementById('privateStatus').innerText = `（私聊中：${from}）`;
+  lastLoadedId = 0;
+  loadedMessageIds.clear();
+}
+
+function rejectPrivate() {
+  if (window.curReq) {
+    supabaseClient.from('private_requests').update({ status: 'rejected' }).eq('id', window.curReq.id);
+  }
+  document.getElementById('privateModal').style.display = 'none';
+}
+
+async function endPrivate() {
+  // 清理所有定时器
+  clearInterval(privateAcceptTimer);
+  if (window.privateTimeoutTimer) clearInterval(window.privateTimeoutTimer);
+  
+  mode = 'group';
+  privatePartner = null;
+  document.getElementById('endPrivateBtn').style.display = 'none';
+  document.getElementById('privateStatus').innerText = '';
+  lastLoadedId = 0;
+  loadedMessageIds.clear();
+}
+
+
+async function loadNewMessages() {
+  if (isLoading) return;
+  isLoading = true;
+  try {
+    const { data: list } = await supabaseClient
+      .from('messages')
+      .select('*')
+      .gt('id', lastLoadedId)
+      .order('created_at', { ascending: true });
+
+    if (!list) return;
+    const dom = document.getElementById('messages');
+    for (const m of list) {
+      if (loadedMessageIds.has(m.id)) continue;
+      loadedMessageIds.add(m.id);
+
+      if (mode === 'group' && m.type !== 'public') continue;
+      if (mode === 'private') {
+        const valid = (m.from_id === me && m.to_id === privatePartner) || (m.from_id === privatePartner && m.to_id === me);
+        if (!valid) continue;
+      }
+
+      if (m.type === 'system') {
+        dom.insertAdjacentHTML('beforeend', `<div class="sys">${m.content}</div>`);
+      } else {
+        const num = m.from_id.replace('号', '');
+        const isMe = m.from_id === me;
+        dom.insertAdjacentHTML('beforeend', `
+          <div class="msg ${isMe ? 'me' : ''}">
+            <div class="avatar" data-id="${m.from_id}">${num}</div>
+            <div class="bubble">${m.content}</div>
+          </div>`);
+      }
+      if (m.id > lastLoadedId) lastLoadedId = m.id;
+    }
+    dom.scrollTop = dom.scrollHeight;
+  } finally { isLoading = false; }
+}
+
+async function send() {
+  const i = document.getElementById('msgInput');
+  const c = i.value.trim();
+  if (!c || !me) return;
+  await supabaseClient.from('messages').insert([{
+    from_id: me,
+    content: c,
+    type: mode === 'group' ? 'public' : 'private',
+    to_id: mode === 'group' ? 'all' : privatePartner
+  }]);
+  i.value = '';
+}
+
+function togglePrivatePanel() {
+  const panel = document.getElementById('privatePanel');
+  const btn = document.getElementById('togglePrivateBtn');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+  btn.innerText = panel.style.display === 'block' ? '收起私聊状态' : '展开私聊状态';
+}
+
+function showResetModal() { document.getElementById('resetModal').style.display = 'flex'; }
+function closeResetModal() { document.getElementById('resetModal').style.display = 'none'; }
+
+async function confirmReset() {
+  if (document.getElementById('resetPwd').value !== ADMIN_PWD) return alert('密码错误');
+  await supabaseClient.from('messages').delete().neq('id', 0);
+  await supabaseClient.from('players').delete().neq('id', 0);
+  await supabaseClient.from('private_requests').delete().neq('id', 0);
+  alert('重置成功');
+  location.reload();
+}
+</script>
 </body>
 </html>
