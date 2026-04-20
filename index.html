@@ -320,9 +320,11 @@ let lastLoadedId = 0;
 let loadedMessageIds = new Set();
 let isLoading = false;
 
-let privateWaitTimer = null;
 let privateCheckTimer = null;
-let watchPartnerExitTimer = null; // 监听对方退出
+let privateWaitTimer = null;
+
+// 新增：监听对方退出
+let watchExitTimer = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -372,17 +374,12 @@ async function login() {
   refreshPrivatePanel();
 }
 
-// 刷新私聊面板
 function refreshPrivatePanel() {
-  loadActivePrivateList();
-  const panel = document.getElementById('privatePanel');
-  const btn = document.getElementById('togglePrivateBtn');
-  if (panel.style.display === 'block') {
+  if (document.getElementById('privatePanel').style.display === 'block') {
     loadActivePrivateList();
   }
 }
 
-// 展开/收起私聊面板
 function togglePrivatePanel() {
   const panel = document.getElementById('privatePanel');
   const btn = document.getElementById('togglePrivateBtn');
@@ -396,7 +393,6 @@ function togglePrivatePanel() {
   }
 }
 
-// 加载有效私聊列表
 async function loadActivePrivateList() {
   if (!me) return;
   try {
@@ -422,20 +418,18 @@ async function loadActivePrivateList() {
   }
 }
 
-// 发送私聊申请
 async function sendPrivateRequest(to) {
   if (!me || !to) return;
 
-  // 清空所有旧定时器
-  clearAllPrivateTimers();
+  if (privateWaitTimer) clearInterval(privateWaitTimer);
+  if (privateCheckTimer) clearInterval(privateCheckTimer);
+  if (watchExitTimer) clearInterval(watchExitTimer);
 
-  // 删除旧请求
   await supabaseClient
     .from('private_requests')
     .delete()
     .or(`from_id.eq.${me},to_id.eq.${me}`);
 
-  // 重置状态
   mode = 'private';
   privatePartner = to;
   document.getElementById('endPrivateBtn').style.display = 'inline-block';
@@ -444,19 +438,18 @@ async function sendPrivateRequest(to) {
     from_id: me, to_id: to, status: 'pending'
   }]);
 
-  // 倒计时
   let sec = 6;
   privateWaitTimer = setInterval(() => {
     sec--;
     document.getElementById('privateStatus').innerText = `等待 ${to} 同意（${sec}秒）`;
     if (sec <= 0) {
-      clearAllPrivateTimers();
+      clearInterval(privateWaitTimer);
+      clearInterval(privateCheckTimer);
       endPrivate();
       alert(to + ' 未同意私聊');
     }
   }, 1000);
 
-  // 检测同意
   privateCheckTimer = setInterval(async () => {
     const { data } = await supabaseClient
       .from('private_requests')
@@ -466,17 +459,17 @@ async function sendPrivateRequest(to) {
       .maybeSingle();
 
     if (data) {
-      clearAllPrivateTimers();
+      clearInterval(privateWaitTimer);
+      clearInterval(privateCheckTimer);
       privatePartner = to;
       mode = 'private';
       document.getElementById('privateStatus').innerText = `已与 ${to} 私聊中`;
-      startWatchPartnerExit(); // 启动监听对方退出
+      startWatchExit();
       refreshPrivatePanel();
     }
   }, 400);
 }
 
-// 监听私聊申请
 async function checkPrivateRequest() {
   if (mode === 'private' || document.getElementById('privateModal').style.display === 'flex') return;
   const { data } = await supabaseClient
@@ -493,7 +486,6 @@ async function checkPrivateRequest() {
   document.getElementById('privateModal').style.display = 'flex';
 }
 
-// 同意私聊
 async function acceptPrivate() {
   if (!window.curPrivateReq) return;
   const from = window.curPrivateReq.from_id;
@@ -508,11 +500,10 @@ async function acceptPrivate() {
   document.getElementById('endPrivateBtn').style.display = 'inline-block';
   document.getElementById('privateModal').style.display = 'none';
   document.getElementById('privateStatus').innerText = `已与 ${from} 私聊中`;
-  startWatchPartnerExit();
+  startWatchExit();
   refreshPrivatePanel();
 }
 
-// 拒绝私聊
 function rejectPrivate() {
   if (window.curPrivateReq) {
     supabaseClient.from('private_requests')
@@ -522,20 +513,12 @@ function rejectPrivate() {
   document.getElementById('privateModal').style.display = 'none';
 }
 
-// 清空所有私聊定时器
-function clearAllPrivateTimers() {
-  if (privateWaitTimer) clearInterval(privateWaitTimer);
-  if (privateCheckTimer) clearInterval(privateCheckTimer);
-  if (watchPartnerExitTimer) clearInterval(watchPartnerExitTimer);
-  privateWaitTimer = null;
-  privateCheckTimer = null;
-  watchPartnerExitTimer = null;
-}
-
-// 启动监听：对方是否退出私聊
-function startWatchPartnerExit() {
+// ====================== 【核心新增：监听对方退出】 ======================
+function startWatchExit() {
   if (!privatePartner) return;
-  watchPartnerExitTimer = setInterval(async () => {
+  if (watchExitTimer) clearInterval(watchExitTimer);
+
+  watchExitTimer = setInterval(async () => {
     const { data } = await supabaseClient
       .from('private_requests')
       .select('*')
@@ -543,46 +526,42 @@ function startWatchPartnerExit() {
       .eq('status', 'accepted')
       .maybeSingle();
 
-    if (!data) {
+    if (!data && mode === 'private') {
       // 对方已退出
-      clearAllPrivateTimers();
-      const exitPartner = privatePartner;
+      clearInterval(watchExitTimer);
+      clearInterval(privateWaitTimer);
+      clearInterval(privateCheckTimer);
+      const who = privatePartner;
       privatePartner = null;
       mode = 'group';
       document.getElementById('endPrivateBtn').style.display = 'none';
       document.getElementById('privateStatus').innerText = '';
       refreshPrivatePanel();
-      alert(exitPartner + ' 已退出私聊，你已返回公聊');
+      alert(who + ' 已退出私聊，你已返回公聊');
     }
   }, 600);
 }
 
-// 结束私聊（自己退出，同时通知对方）
 async function endPrivate() {
-  if (!privatePartner) {
-    clearAllPrivateTimers();
-    mode = 'group';
-    document.getElementById('endPrivateBtn').style.display = 'none';
-    document.getElementById('privateStatus').innerText = '';
-    refreshPrivatePanel();
-    return;
+  if (privatePartner) {
+    await supabaseClient
+      .from('private_requests')
+      .delete()
+      .or(`and(from_id.eq.${me},to_id.eq.${privatePartner}),and(from_id.eq.${privatePartner},to_id.eq.${me})`);
   }
 
-  // 删除双方私聊记录 → 对方会自动检测到退出
-  await supabaseClient
-    .from('private_requests')
-    .delete()
-    .or(`and(from_id.eq.${me},to_id.eq.${privatePartner}),and(from_id.eq.${privatePartner},to_id.eq.${me})`);
+  if (privateWaitTimer) clearInterval(privateWaitTimer);
+  if (privateCheckTimer) clearInterval(privateCheckTimer);
+  if (watchExitTimer) clearInterval(watchExitTimer);
 
-  clearAllPrivateTimers();
   privatePartner = null;
   mode = 'group';
   document.getElementById('endPrivateBtn').style.display = 'none';
   document.getElementById('privateStatus').innerText = '';
   refreshPrivatePanel();
 }
+// ======================================================================
 
-// 加载消息
 async function loadNewMessages() {
   if (isLoading) return;
   isLoading = true;
@@ -629,7 +608,6 @@ async function loadNewMessages() {
   }
 }
 
-// 发送消息
 async function send() {
   const c = document.getElementById('msgInput').value.trim();
   if (!c || !me) return;
@@ -642,7 +620,6 @@ async function send() {
   document.getElementById('msgInput').value = '';
 }
 
-// 重置
 function showResetModal() { document.getElementById('resetModal').style.display = 'flex'; }
 function closeResetModal() { document.getElementById('resetModal').style.display = 'none'; }
 async function confirmReset() {
